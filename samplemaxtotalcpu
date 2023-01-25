@@ -1,0 +1,79 @@
+#/usr/bim/bash
+
+GREENF=$(tput setaf 2)
+GREENFB=$(tput setaf 2; tput bold)
+ECLEAR=$(tput sgr0)
+YELLOWF=$(tput setaf 3)
+YELLOWFB=$(tput setaf 3; tput bold)
+REDF=$(tput setaf 1)
+REDFB=$(tput setaf 1; tput bold)
+
+
+### Script for take sample of max total cpu usage at linux
+POSITIONAL_ARGS=()
+ITERRATIONS=1
+maxcpuusage=0
+
+# print help message
+usage() {
+  tput bold
+  tput setaf 2
+  echo "Script for take sample of max total cpu usage at linux"
+  echo
+  echo -e "Syntax: "
+  echo -e "\tsamplemaxtotalcpu [-i] [-m] \n"
+  echo -e "Usage: "
+  echo -e "\tsamplemaxtotalcpu -i value | samplemaxtotalcpu --iterrations value\n"
+  echo -e "\tsamplemaxtotalcpu -m maxcpucore | samplemaxtotalcpu --maxcpucore maxcpucore\n"
+  echo
+  tput sgr0
+  exit 2
+}
+
+
+
+# Check if there is an argument, if none print usage and exit the program
+if [[ $# -eq 0 ]]; then
+    echo -e "${REDFB}Unknown Options${CLEAR}"; usage ; exit 1
+fi
+
+#while loop for positional argument
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -i|--iterrations)
+      ITERRATIONS=$2; shift 2;;
+    -m|--maxcpucore)
+      CPUCORE=$2; shift 2;;
+    -h|--help) usage ; shift   ;; #help to print usage
+    -*|--*) echo -e "${REDFB}Unknown Options${CLEAR}"; usage; exit 1 ;;
+    *)
+        POSITIONAL_ARGS+=("$1") #save positional arg
+        echo -e "${REDFB}Unknown Options${CLEAR}"; usage; shift ;;
+  esac
+done
+
+set -- "${POSITIONAL_ARGS[@]}" #restore positional parameters
+for i in $(seq $ITERRATIONS)
+do
+  echo "++ | Iteration $i"
+  totalcpuusage=$(ps auxf | grep -v USER | awk '{print $3}' | tr "\n" "+" | sed "s#+\$##g" | paste -s -d'+' - | bc -l)
+  if (( $(echo "$totalcpuusage > $maxcpuusage" | bc -l) ))
+  then
+    maxcpuusage=$totalcpuusage
+  fi
+
+  if [ -z $CPUCORE ]
+  then
+    echo "${YELLOWF}++ | Max Total CPU Usage is $maxcpuusage${ECLEAR}"
+  else
+    thresold=$((100*$CPUCORE))
+    if (( $(echo "$maxcpuusage >= $thresold" | bc -l) ))
+    then
+      echo "${REDFB}++ | Possible server is over quota${ECLEAR}"
+    else
+      echo "${GREENFB}++ | Safe and server is not over quota based on cpu usage total${ECLEAR}"
+    fi
+  fi
+
+  sleep 7
+done
